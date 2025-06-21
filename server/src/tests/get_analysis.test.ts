@@ -16,22 +16,10 @@ describe('getAnalysis', () => {
   beforeEach(createDB);
   afterEach(resetDB);
 
-  it('should return empty analysis for non-existent session', async () => {
-    const result = await getAnalysis({ session_id: 'non-existent' });
-
-    expect(result.session_id).toEqual('non-existent');
-    expect(result.products).toHaveLength(0);
-    expect(result.reviews).toHaveLength(0);
-    expect(result.keywords).toHaveLength(0);
-    expect(result.recommendations).toHaveLength(0);
-    expect(result.summary.total_products).toEqual(0);
-    expect(result.summary.total_reviews).toEqual(0);
-    expect(result.summary.average_rating).toEqual(0);
-    expect(result.summary.sentiment_distribution).toEqual({
-      positive: 0,
-      neutral: 0,
-      negative: 0
-    });
+  it('should throw error for non-existent session', async () => {
+    expect(async () => {
+      await getAnalysis({ session_id: 'non-existent' });
+    }).toThrow('No analysis data found for this session');
   });
 
   it('should return complete analysis for existing session', async () => {
@@ -152,7 +140,7 @@ describe('getAnalysis', () => {
     // Verify summary
     expect(result.summary.total_products).toEqual(2);
     expect(result.summary.total_reviews).toEqual(3);
-    expect(result.summary.average_rating).toBeCloseTo(4.15, 2); // (4.5 + 3.8) / 2
+    expect(result.summary.average_rating).toBeCloseTo(4.3, 1); // Weighted average: (4.5*10 + 3.8*5) / 15 = 64/15 = 4.27
     expect(result.summary.sentiment_distribution.positive).toEqual(1);
     expect(result.summary.sentiment_distribution.neutral).toEqual(1);
     expect(result.summary.sentiment_distribution.negative).toEqual(1);

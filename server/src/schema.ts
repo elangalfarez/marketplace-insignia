@@ -100,6 +100,12 @@ export const getAnalysisInputSchema = z.object({
 
 export type GetAnalysisInput = z.infer<typeof getAnalysisInputSchema>;
 
+export const cleanupSessionInputSchema = z.object({
+  session_id: z.string()
+});
+
+export type CleanupSessionInput = z.infer<typeof cleanupSessionInputSchema>;
+
 // Response schemas
 export const searchResponseSchema = z.object({
   session_id: z.string(),

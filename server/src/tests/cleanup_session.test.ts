@@ -1,15 +1,11 @@
-
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { resetDB, createDB } from '../helpers';
 import { db } from '../db';
 import { productsTable, reviewsTable, keywordsTable, recommendationsTable } from '../db/schema';
-import { type GetAnalysisInput } from '../schema';
 import { cleanupSession } from '../handlers/cleanup_session';
 import { eq } from 'drizzle-orm';
 
-const testInput: GetAnalysisInput = {
-  session_id: 'test-session-123'
-};
+const testSessionId = 'test-session-123';
 
 describe('cleanupSession', () => {
   beforeEach(createDB);
@@ -23,7 +19,7 @@ describe('cleanupSession', () => {
         platform: 'shopee',
         url: 'https://shopee.com/test',
         total_reviews: 10,
-        session_id: testInput.session_id
+        session_id: testSessionId
       })
       .returning()
       .execute();
@@ -38,7 +34,7 @@ describe('cleanupSession', () => {
 
     await db.insert(keywordsTable)
       .values({
-        session_id: testInput.session_id,
+        session_id: testSessionId,
         keyword: 'quality',
         frequency: 5,
         sentiment: 'positive'
@@ -47,7 +43,7 @@ describe('cleanupSession', () => {
 
     await db.insert(recommendationsTable)
       .values({
-        session_id: testInput.session_id,
+        session_id: testSessionId,
         title: 'Improve packaging',
         description: 'Consider better packaging materials',
         priority: 'medium',
@@ -56,25 +52,30 @@ describe('cleanupSession', () => {
       .execute();
 
     // Execute cleanup
-    const result = await cleanupSession(testInput);
+    const result = await cleanupSession({ session_id: testSessionId });
 
-    // Verify success response
-    expect(result.success).toBe(true);
+    // Verify response structure
+    expect(result.session_id).toBe(testSessionId);
+    expect(result.message).toBe('Session data cleaned up successfully');
+    expect(result.deleted_counts.products).toBe(1);
+    expect(result.deleted_counts.reviews).toBe(1);
+    expect(result.deleted_counts.keywords).toBe(1);
+    expect(result.deleted_counts.recommendations).toBe(1);
 
     // Verify all data is deleted
     const products = await db.select()
       .from(productsTable)
-      .where(eq(productsTable.session_id, testInput.session_id))
+      .where(eq(productsTable.session_id, testSessionId))
       .execute();
 
     const keywords = await db.select()
       .from(keywordsTable)
-      .where(eq(keywordsTable.session_id, testInput.session_id))
+      .where(eq(keywordsTable.session_id, testSessionId))
       .execute();
 
     const recommendations = await db.select()
       .from(recommendationsTable)
-      .where(eq(recommendationsTable.session_id, testInput.session_id))
+      .where(eq(recommendationsTable.session_id, testSessionId))
       .execute();
 
     const reviews = await db.select()
@@ -99,7 +100,7 @@ describe('cleanupSession', () => {
           platform: 'shopee',
           url: 'https://shopee.com/test1',
           total_reviews: 5,
-          session_id: testInput.session_id
+          session_id: testSessionId
         },
         {
           name: 'Test Product 2',
@@ -114,7 +115,7 @@ describe('cleanupSession', () => {
     await db.insert(keywordsTable)
       .values([
         {
-          session_id: testInput.session_id,
+          session_id: testSessionId,
           keyword: 'quality',
           frequency: 3
         },
@@ -127,18 +128,20 @@ describe('cleanupSession', () => {
       .execute();
 
     // Clean up only the test session
-    const result = await cleanupSession(testInput);
-    expect(result.success).toBe(true);
+    const result = await cleanupSession({ session_id: testSessionId });
+    expect(result.session_id).toBe(testSessionId);
+    expect(result.deleted_counts.products).toBe(1);
+    expect(result.deleted_counts.keywords).toBe(1);
 
     // Verify test session data is deleted
     const testSessionProducts = await db.select()
       .from(productsTable)
-      .where(eq(productsTable.session_id, testInput.session_id))
+      .where(eq(productsTable.session_id, testSessionId))
       .execute();
 
     const testSessionKeywords = await db.select()
       .from(keywordsTable)
-      .where(eq(keywordsTable.session_id, testInput.session_id))
+      .where(eq(keywordsTable.session_id, testSessionId))
       .execute();
 
     expect(testSessionProducts).toHaveLength(0);
@@ -162,11 +165,14 @@ describe('cleanupSession', () => {
   });
 
   it('should handle non-existent session gracefully', async () => {
-    const nonExistentInput: GetAnalysisInput = {
-      session_id: 'non-existent-session'
-    };
+    const nonExistentSessionId = 'non-existent-session';
 
-    const result = await cleanupSession(nonExistentInput);
-    expect(result.success).toBe(true);
+    const result = await cleanupSession({ session_id: nonExistentSessionId });
+    expect(result.session_id).toBe(nonExistentSessionId);
+    expect(result.message).toBe('Session data cleaned up successfully');
+    expect(result.deleted_counts.products).toBe(0);
+    expect(result.deleted_counts.reviews).toBe(0);
+    expect(result.deleted_counts.keywords).toBe(0);
+    expect(result.deleted_counts.recommendations).toBe(0);
   });
 });

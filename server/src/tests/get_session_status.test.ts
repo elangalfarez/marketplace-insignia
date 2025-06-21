@@ -22,7 +22,7 @@ describe('getSessionStatus', () => {
     expect(result.session_id).toEqual('non-existent');
     expect(result.status).toEqual('failed');
     expect(result.progress).toEqual(0);
-    expect(result.message).toEqual('Session not found');
+    expect(result.message).toEqual('Session not found or analysis not started');
   });
 
   it('should return started status when only products exist', async () => {
@@ -41,7 +41,7 @@ describe('getSessionStatus', () => {
     expect(result.session_id).toEqual(testSessionId);
     expect(result.status).toEqual('started');
     expect(result.progress).toEqual(25);
-    expect(result.message).toEqual('Products scraped, analyzing reviews...');
+    expect(result.message).toEqual('Products scraped (1 found), analyzing reviews...');
   });
 
   it('should return in_progress status when products and reviews exist', async () => {
@@ -68,7 +68,7 @@ describe('getSessionStatus', () => {
     expect(result.session_id).toEqual(testSessionId);
     expect(result.status).toEqual('in_progress');
     expect(result.progress).toEqual(50);
-    expect(result.message).toEqual('Reviews analyzed, extracting keywords...');
+    expect(result.message).toEqual('Reviews analyzed (1 found), extracting keywords...');
   });
 
   it('should return in_progress status when products, reviews, and keywords exist', async () => {
@@ -103,7 +103,7 @@ describe('getSessionStatus', () => {
     expect(result.session_id).toEqual(testSessionId);
     expect(result.status).toEqual('in_progress');
     expect(result.progress).toEqual(75);
-    expect(result.message).toEqual('Keywords extracted, generating recommendations...');
+    expect(result.message).toEqual('Keywords extracted (1 found), generating recommendations...');
   });
 
   it('should return completed status when all data exists', async () => {
@@ -147,7 +147,7 @@ describe('getSessionStatus', () => {
     expect(result.session_id).toEqual(testSessionId);
     expect(result.status).toEqual('completed');
     expect(result.progress).toEqual(100);
-    expect(result.message).toEqual('Analysis completed successfully');
+    expect(result.message).toEqual('Analysis completed successfully! 1 products, 1 reviews, 1 keywords, 1 recommendations');
   });
 
   it('should handle multiple sessions correctly', async () => {
