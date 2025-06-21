@@ -1,3 +1,4 @@
+
 import { db } from '../db';
 import { productsTable, reviewsTable, keywordsTable, recommendationsTable } from '../db/schema';
 import { type GetAnalysisInput, type AnalysisResult } from '../schema';
@@ -13,27 +14,29 @@ export const getAnalysis = async (input: GetAnalysisInput): Promise<AnalysisResu
       .where(eq(productsTable.session_id, session_id))
       .execute();
 
-    if (products.length === 0) {
-      throw new Error('No analysis data found for this session');
-    }
-
-    // Convert numeric fields to numbers for products
+    // Convert numeric fields to numbers
     const processedProducts = products.map(product => ({
       ...product,
       average_rating: product.average_rating ? parseFloat(product.average_rating) : null
     }));
 
     // Fetch reviews for all products in the session
-    const reviewsWithProducts = await db.select({
-      review: reviewsTable,
-      product: productsTable
-    })
-      .from(reviewsTable)
-      .innerJoin(productsTable, eq(reviewsTable.product_id, productsTable.id))
-      .where(eq(productsTable.session_id, session_id))
-      .execute();
+    const productIds = products.map(p => p.id);
+    let reviews: any[] = [];
+    
+    if (productIds.length > 0) {
+      // Get reviews for products in this session
+      const reviewsWithProducts = await db.select({
+        review: reviewsTable,
+        product: productsTable
+      })
+        .from(reviewsTable)
+        .innerJoin(productsTable, eq(reviewsTable.product_id, productsTable.id))
+        .where(eq(productsTable.session_id, session_id))
+        .execute();
 
-    const reviews = reviewsWithProducts.map(result => result.review);
+      reviews = reviewsWithProducts.map(result => result.review);
+    }
 
     // Fetch keywords for the session
     const keywords = await db.select()
@@ -51,19 +54,12 @@ export const getAnalysis = async (input: GetAnalysisInput): Promise<AnalysisResu
     const totalProducts = processedProducts.length;
     const totalReviews = reviews.length;
     
-    // Calculate average rating across all products (weighted by number of reviews)
-    let totalRatingSum = 0;
-    let totalReviewsForAverage = 0;
-    
-    for (const product of processedProducts) {
-      if (product.average_rating !== null) {
-        totalRatingSum += product.average_rating * product.total_reviews;
-        totalReviewsForAverage += product.total_reviews;
-      }
-    }
-    
-    const averageRating = totalReviewsForAverage > 0 
-      ? totalRatingSum / totalReviewsForAverage
+    // Calculate average rating across all products
+    const validRatings = processedProducts
+      .map(p => p.average_rating)
+      .filter((rating): rating is number => rating !== null);
+    const averageRating = validRatings.length > 0 
+      ? validRatings.reduce((sum, rating) => sum + rating, 0) / validRatings.length
       : 0;
 
     // Calculate sentiment distribution from reviews
@@ -83,7 +79,7 @@ export const getAnalysis = async (input: GetAnalysisInput): Promise<AnalysisResu
       summary: {
         total_products: totalProducts,
         total_reviews: totalReviews,
-        average_rating: Math.round(averageRating * 10) / 10, // Round to 1 decimal place
+        average_rating: averageRating,
         sentiment_distribution: sentimentCounts
       }
     };

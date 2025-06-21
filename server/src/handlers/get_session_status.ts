@@ -1,3 +1,4 @@
+
 import { db } from '../db';
 import { productsTable, reviewsTable, keywordsTable, recommendationsTable } from '../db/schema';
 import { type GetAnalysisInput } from '../schema';
@@ -20,13 +21,13 @@ export const getSessionStatus = async (input: GetAnalysisInput): Promise<{
 
     const totalProducts = productsCount[0]?.count || 0;
 
-    // If no products found, session doesn't exist or hasn't started yet
+    // If no products found, session doesn't exist or failed
     if (totalProducts === 0) {
       return {
         session_id,
         status: 'failed',
         progress: 0,
-        message: 'Session not found or analysis not started'
+        message: 'Session not found'
       };
     }
 
@@ -58,33 +59,33 @@ export const getSessionStatus = async (input: GetAnalysisInput): Promise<{
     // Determine status based on data completeness
     let status: 'started' | 'in_progress' | 'completed' | 'failed';
     let progress: number;
-    let message: string;
+    let message: string | undefined;
 
     if (totalProducts > 0 && totalReviews === 0) {
       // Products scraped but no reviews yet
       status = 'started';
       progress = 25;
-      message = `Products scraped (${totalProducts} found), analyzing reviews...`;
+      message = 'Products scraped, analyzing reviews...';
     } else if (totalReviews > 0 && totalKeywords === 0) {
       // Reviews available but no keyword analysis
       status = 'in_progress';
       progress = 50;
-      message = `Reviews analyzed (${totalReviews} found), extracting keywords...`;
+      message = 'Reviews analyzed, extracting keywords...';
     } else if (totalKeywords > 0 && totalRecommendations === 0) {
       // Keywords available but no recommendations
       status = 'in_progress';
       progress = 75;
-      message = `Keywords extracted (${totalKeywords} found), generating recommendations...`;
+      message = 'Keywords extracted, generating recommendations...';
     } else if (totalRecommendations > 0) {
       // All data available
       status = 'completed';
       progress = 100;
-      message = `Analysis completed successfully! ${totalProducts} products, ${totalReviews} reviews, ${totalKeywords} keywords, ${totalRecommendations} recommendations`;
+      message = 'Analysis completed successfully';
     } else {
       // Fallback for edge cases
       status = 'in_progress';
       progress = 10;
-      message = 'Processing data...';
+      message = 'Processing...';
     }
 
     return {
@@ -95,11 +96,6 @@ export const getSessionStatus = async (input: GetAnalysisInput): Promise<{
     };
   } catch (error) {
     console.error('Get session status failed:', error);
-    return {
-      session_id: input.session_id,
-      status: 'failed',
-      progress: 0,
-      message: 'Error checking session status'
-    };
+    throw error;
   }
 };

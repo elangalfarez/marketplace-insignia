@@ -1,90 +1,38 @@
+
 import { db } from '../db';
 import { productsTable, reviewsTable, keywordsTable, recommendationsTable } from '../db/schema';
-import { type CleanupSessionInput } from '../schema';
-import { eq, inArray } from 'drizzle-orm';
+import { type GetAnalysisInput } from '../schema';
+import { eq } from 'drizzle-orm';
 
-export const cleanupSession = async (input: CleanupSessionInput): Promise<{
-  session_id: string;
-  message: string;
-  deleted_counts: {
-    products: number;
-    reviews: number;
-    keywords: number;
-    recommendations: number;
-  };
-}> => {
+export const cleanupSession = async (input: GetAnalysisInput): Promise<{ success: boolean }> => {
   try {
     const { session_id } = input;
 
-    // Get product IDs for this session before deletion
-    const products = await db.select()
-      .from(productsTable)
+    // Delete reviews first (foreign key dependency on products)
+    await db.delete(reviewsTable)
+      .where(eq(reviewsTable.product_id, 
+        db.select({ id: productsTable.id })
+          .from(productsTable)
+          .where(eq(productsTable.session_id, session_id))
+      ))
+      .execute();
+
+    // Delete products
+    await db.delete(productsTable)
       .where(eq(productsTable.session_id, session_id))
       .execute();
 
-    const productIds = products.map(p => p.id);
-
-    // Delete reviews first (foreign key constraint)
-    let deletedReviews = 0;
-    if (productIds.length > 0) {
-      const reviewsToDelete = await db.select()
-        .from(reviewsTable)
-        .where(inArray(reviewsTable.product_id, productIds))
-        .execute();
-      
-      deletedReviews = reviewsToDelete.length;
-      
-      if (deletedReviews > 0) {
-        await db.delete(reviewsTable)
-          .where(inArray(reviewsTable.product_id, productIds))
-          .execute();
-      }
-    }
-
     // Delete keywords
-    const keywordsToDelete = await db.select()
-      .from(keywordsTable)
+    await db.delete(keywordsTable)
       .where(eq(keywordsTable.session_id, session_id))
       .execute();
 
-    const deletedKeywords = keywordsToDelete.length;
-    if (deletedKeywords > 0) {
-      await db.delete(keywordsTable)
-        .where(eq(keywordsTable.session_id, session_id))
-        .execute();
-    }
-
     // Delete recommendations
-    const recommendationsToDelete = await db.select()
-      .from(recommendationsTable)
+    await db.delete(recommendationsTable)
       .where(eq(recommendationsTable.session_id, session_id))
       .execute();
 
-    const deletedRecommendations = recommendationsToDelete.length;
-    if (deletedRecommendations > 0) {
-      await db.delete(recommendationsTable)
-        .where(eq(recommendationsTable.session_id, session_id))
-        .execute();
-    }
-
-    // Delete products last
-    const deletedProducts = products.length;
-    if (deletedProducts > 0) {
-      await db.delete(productsTable)
-        .where(eq(productsTable.session_id, session_id))
-        .execute();
-    }
-
-    return {
-      session_id,
-      message: 'Session data cleaned up successfully',
-      deleted_counts: {
-        products: deletedProducts,
-        reviews: deletedReviews,
-        keywords: deletedKeywords,
-        recommendations: deletedRecommendations
-      }
-    };
+    return { success: true };
   } catch (error) {
     console.error('Session cleanup failed:', error);
     throw error;

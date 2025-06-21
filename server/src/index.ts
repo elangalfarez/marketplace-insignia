@@ -5,7 +5,7 @@ import 'dotenv/config';
 import cors from 'cors';
 import superjson from 'superjson';
 
-import { searchInputSchema, getAnalysisInputSchema, cleanupSessionInputSchema } from './schema';
+import { searchInputSchema, getAnalysisInputSchema } from './schema';
 import { searchProducts } from './handlers/search_products';
 import { getAnalysis } from './handlers/get_analysis';
 import { getSessionStatus } from './handlers/get_session_status';
@@ -36,7 +36,7 @@ const appRouter = router({
     .query(({ input }) => getSessionStatus(input)),
     
   cleanupSession: publicProcedure
-    .input(cleanupSessionInputSchema)
+    .input(getAnalysisInputSchema)
     .mutation(({ input }) => cleanupSession(input)),
 });
 
